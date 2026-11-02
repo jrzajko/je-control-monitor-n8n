@@ -3,7 +3,7 @@
 -- rerunning the same month under the same policy version is rejected row by row (first write wins),
 -- while a rerun under a new policy version is recorded as new rows.
 
-create table if not exists public.je_control_log (
+create table if not exists public.je_control_audit_log (
   id                bigint generated always as identity primary key,
   run_month         text        not null,           -- e.g. '2026-09'
   entry_number      text        not null,
@@ -25,8 +25,8 @@ create table if not exists public.je_control_log (
   checked_at        timestamptz,
   eval_label        jsonb,                           -- planted issue in the synthetic data (eval only)
   logged_at         timestamptz not null default now(),
-  constraint je_control_log_unique_run unique (run_month, entry_number, policy_version)
+  constraint je_control_audit_log_unique_run unique (run_month, entry_number, policy_version)
 );
 
-alter table public.je_control_log enable row level security;
+alter table public.je_control_audit_log enable row level security;
 -- n8n writes with the service-role key, which bypasses RLS. Add read policies for any other role that needs access.

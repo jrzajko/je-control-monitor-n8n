@@ -146,7 +146,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// One audit-log row per entry, pass or fail.\n// Unique key (run_month, entry_number, policy_version) in Supabase: a rerun of the same month under the\n// same policy is rejected row by row (first write wins, history is never overwritten); a rerun under a\n// new policy version is logged as new rows.\nconst runMonth='2026-09';\nreturn $input.all().map(i=>{const j=i.json;return {json:{\n run_month:runMonth, entry_number:j.entryNumber, entity:j.entity, currency:j.currency, amount:j.amount,\n amount_eur:j.amountEUR, fx_rate:j.fxRate, required_approval:j.requiredApproval, created_by:j.createdBy,\n approved_by:j.approvedBy, approver_role:j.approverRole, source:j.source, description:j.description,\n result:j.result, findings:j.findings, explanation:j.explanation, policy_version:j.policyVersion,\n checked_at:j.checkedAt, eval_label:j._evalLabel}};});\n"
+        "jsCode": "// One audit-log row per entry, pass or fail.\n// Unique key on je_control_audit_log (run_month, entry_number, policy_version) in Supabase: a rerun of the same month under the\n// same policy is rejected row by row (first write wins, history is never overwritten); a rerun under a\n// new policy version is logged as new rows.\nconst runMonth='2026-09';\nreturn $input.all().map(i=>{const j=i.json;return {json:{\n run_month:runMonth, entry_number:j.entryNumber, entity:j.entity, currency:j.currency, amount:j.amount,\n amount_eur:j.amountEUR, fx_rate:j.fxRate, required_approval:j.requiredApproval, created_by:j.createdBy,\n approved_by:j.approvedBy, approver_role:j.approverRole, source:j.source, description:j.description,\n result:j.result, findings:j.findings, explanation:j.explanation, policy_version:j.policyVersion,\n checked_at:j.checkedAt, eval_label:j._evalLabel}};});\n"
       },
       "id": "6ea4ea37-ed52-43de-b442-4dd41ec96ff0",
       "name": "Shape log row",
@@ -159,7 +159,7 @@
     },
     {
       "parameters": {
-        "tableId": "je_control_log",
+        "tableId": "je_control_audit_log",
         "dataToSend": "autoMapInputData"
       },
       "id": "03bc47b2-8529-44d4-b6db-5aa2598b2bbb",
@@ -174,7 +174,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Monthly control report: what was checked, what passed, what was flagged. Runs once over all entries.\nconst rows=$('Shape log row').all().map(i=>i.json);\nconst logged=$('Audit log (Supabase)').all();\nconst logFail=logged.filter(i=>i.json&&i.json.error).length;\nconst esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\nconst fmt=n=>n==null?'':Math.round(n).toLocaleString('en');\nconst by=r=>rows.filter(x=>x.result===r);\nconst ex=by('exception'),rv=by('review'),ps=by('pass');\nconst evalOk=rows.filter(r=>r.findings.map(f=>f.code).sort().join()===[...(r.eval_label||[])].sort().join()).length;\nconst llmN=rows.filter(r=>r.explanation).length, llmOk=rows.filter(r=>r.explanation&&r.explanation.ok).length;\nconst exEUR=ex.reduce((a,r)=>a+(r.amount_eur||0),0);\nconst codes={};rows.forEach(r=>r.findings.forEach(f=>codes[f.code]=(codes[f.code]||0)+1));\nconst label={no_approval:'Above threshold, no approval',approver_too_junior:'Approved below required level',self_approved:'Self-approved (segregation of duties)',closed_period:'Posted into a closed period',weekend:'Entered at the weekend',round_amount:'Round amount'};\nconst tr=r=>'<tr class=\"'+r.result+'\"><td>'+esc(r.entry_number)+'<br><span class=\"m\">'+esc(r.entity)+', '+esc(r.source)+'</span></td>'+\n '<td>'+esc(r.description)+'<br><span class=\"m\">'+esc(r.currency)+' '+fmt(r.amount)+' = EUR '+fmt(r.amount_eur)+'</span></td>'+\n '<td>'+esc(r.created_by)+'<br><span class=\"m\">approved: '+esc(r.approved_by||'none')+(r.approver_role?' ('+esc(r.approver_role)+')':'')+'; needs '+esc(r.required_approval)+'</span></td>'+\n '<td>'+r.findings.map(f=>'<div><b>'+esc(label[f.code]||f.code)+'</b><br><span class=\"m\">'+esc(f.detail)+'</span></div>').join('')+'</td>'+\n '<td>'+(r.explanation?'<div>'+esc(r.explanation.summary)+'</div><div class=\"m\">Risk: '+esc(r.explanation.risk)+'</div><div class=\"m\"><b>Next:</b> '+esc(r.explanation.next_step)+'</div>':'')+'</td></tr>';\nconst head='<tr><th>Entry</th><th>What</th><th>Who</th><th>Policy finding</th><th>Explanation (Claude)</th></tr>';\nconst css='body{font:15px/1.5 system-ui,sans-serif;color:#1F2A33;background:#FBFCFC;margin:0}main{max-width:1100px;margin:0 auto;padding:40px 20px}h1{font:600 1.8rem Georgia,serif;margin:0 0 6px}h2{font:600 1.25rem Georgia,serif;margin:36px 0 10px}.m{color:#5F6B74;font-size:.85em}.k{display:flex;gap:28px;flex-wrap:wrap;margin:20px 0}.k div{min-width:120px}.k b{display:block;font:600 1.8rem Georgia,serif}.sc{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:860px;font-size:.9rem}th,td{text-align:left;vertical-align:top;padding:9px 10px 9px 0;border-bottom:1px solid #D8DEE3}th{color:#5F6B74;font-size:.8rem}tr.exception td:first-child{border-left:3px solid #B3261E;padding-left:8px}tr.review td:first-child{border-left:3px solid #A8661A;padding-left:8px}ul{padding-left:18px}';\nconst html='<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>JE control report September 2026</title><style>'+css+'</style></head><body><main>'+\n '<h1>Journal entry control report: September 2026</h1>'+\n '<p class=\"m\">Kestrel Group (fictional), 5 entities. Policy '+esc(rows[0]&&rows[0].policy_version)+'. Thresholds tested in EUR at fixed 30 Sep rates. Generated '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC. Read-only: this monitor detects, it does not block or change entries.</p>'+\n '<div class=\"k\"><div><b>'+rows.length+'</b><span class=\"m\">entries checked</span></div><div><b>'+ps.length+'</b><span class=\"m\">passed</span></div><div><b style=\"color:#B3261E\">'+ex.length+'</b><span class=\"m\">policy exceptions</span></div><div><b style=\"color:#A8661A\">'+rv.length+'</b><span class=\"m\">flagged for review</span></div><div><b>EUR '+(exEUR/1e6).toFixed(2)+'m</b><span class=\"m\">value in exceptions</span></div></div>'+\n '<h2>What was checked</h2><ul>'+Object.keys(label).map(c=>'<li>'+label[c]+': <b>'+(codes[c]||0)+'</b></li>').join('')+'</ul>'+\n '<h2>Exception queue (controller action)</h2><div class=\"sc\"><table>'+head+ex.map(tr).join('')+'</table></div>'+\n '<h2>For review (not breaches)</h2><div class=\"sc\"><table>'+head+rv.map(tr).join('')+'</table></div>'+\n '<h2>Run quality</h2><ul><li>Detection eval: <b>'+evalOk+'/'+rows.length+'</b> entries match the labelled test set.</li><li>Explanations: <b>'+llmOk+'/'+llmN+'</b> valid JSON from Claude; failures fall back to manual review and are still logged.</li><li>Audit log: <b>'+(rows.length-logFail)+'/'+rows.length+'</b> rows written to je_control_log'+(logFail?' ('+logFail+' rejected, e.g. duplicates from a rerun of the same month and policy version)':'')+'. Each row carries the policy version and FX rate, so an auditor can re-perform the check.</li></ul>'+\n '</main></body></html>';\nreturn [{json:{checked:rows.length,passed:ps.length,exceptions:ex.length,review:rv.length,exceptionValueEUR:exEUR,evalMatch:evalOk+'/'+rows.length,explanationsValid:llmOk+'/'+llmN,auditLogWritten:(rows.length-logFail)+'/'+rows.length}, binary:{report:{data:Buffer.from(html).toString('base64'),mimeType:'text/html',fileName:'je_control_report_2026-09.html'}}}];\n"
+        "jsCode": "// Monthly control report: what was checked, what passed, what was flagged. Runs once over all entries.\nconst rows=$('Shape log row').all().map(i=>i.json);\nconst logged=$('Audit log (Supabase)').all();\n// A row counts as written only if Supabase returned it with an id (a disabled node passes items through without one).\nconst logOk=logged.filter(i=>i.json&&i.json.id&&!i.json.error).length, logFail=rows.length-logOk;\nconst esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\nconst fmt=n=>n==null?'':Math.round(n).toLocaleString('en');\nconst by=r=>rows.filter(x=>x.result===r);\nconst ex=by('exception'),rv=by('review'),ps=by('pass');\nconst evalOk=rows.filter(r=>r.findings.map(f=>f.code).sort().join()===[...(r.eval_label||[])].sort().join()).length;\nconst llmN=rows.filter(r=>r.explanation).length, llmOk=rows.filter(r=>r.explanation&&r.explanation.ok).length;\nconst exEUR=ex.reduce((a,r)=>a+(r.amount_eur||0),0);\nconst codes={};rows.forEach(r=>r.findings.forEach(f=>codes[f.code]=(codes[f.code]||0)+1));\nconst label={no_approval:'Above threshold, no approval',approver_too_junior:'Approved below required level',self_approved:'Self-approved (segregation of duties)',closed_period:'Posted into a closed period',weekend:'Entered at the weekend',round_amount:'Round amount'};\nconst tr=r=>'<tr class=\"'+r.result+'\"><td>'+esc(r.entry_number)+'<br><span class=\"m\">'+esc(r.entity)+', '+esc(r.source)+'</span></td>'+\n '<td>'+esc(r.description)+'<br><span class=\"m\">'+esc(r.currency)+' '+fmt(r.amount)+' = EUR '+fmt(r.amount_eur)+'</span></td>'+\n '<td>'+esc(r.created_by)+'<br><span class=\"m\">approved: '+esc(r.approved_by||'none')+(r.approver_role?' ('+esc(r.approver_role)+')':'')+'; needs '+esc(r.required_approval)+'</span></td>'+\n '<td>'+r.findings.map(f=>'<div><b>'+esc(label[f.code]||f.code)+'</b><br><span class=\"m\">'+esc(f.detail)+'</span></div>').join('')+'</td>'+\n '<td>'+(r.explanation?'<div>'+esc(r.explanation.summary)+'</div><div class=\"m\">Risk: '+esc(r.explanation.risk)+'</div><div class=\"m\"><b>Next:</b> '+esc(r.explanation.next_step)+'</div>':'')+'</td></tr>';\nconst head='<tr><th>Entry</th><th>What</th><th>Who</th><th>Policy finding</th><th>Explanation (Claude)</th></tr>';\nconst css='body{font:15px/1.5 system-ui,sans-serif;color:#1F2A33;background:#FBFCFC;margin:0}main{max-width:1100px;margin:0 auto;padding:40px 20px}h1{font:600 1.8rem Georgia,serif;margin:0 0 6px}h2{font:600 1.25rem Georgia,serif;margin:36px 0 10px}.m{color:#5F6B74;font-size:.85em}.k{display:flex;gap:28px;flex-wrap:wrap;margin:20px 0}.k div{min-width:120px}.k b{display:block;font:600 1.8rem Georgia,serif}.sc{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:860px;font-size:.9rem}th,td{text-align:left;vertical-align:top;padding:9px 10px 9px 0;border-bottom:1px solid #D8DEE3}th{color:#5F6B74;font-size:.8rem}tr.exception td:first-child{border-left:3px solid #B3261E;padding-left:8px}tr.review td:first-child{border-left:3px solid #A8661A;padding-left:8px}ul{padding-left:18px}';\nconst html='<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>JE control report September 2026</title><style>'+css+'</style></head><body><main>'+\n '<h1>Journal entry control report: September 2026</h1>'+\n '<p class=\"m\">Kestrel Group (fictional), 5 entities. Policy '+esc(rows[0]&&rows[0].policy_version)+'. Thresholds tested in EUR at fixed 30 Sep rates. Generated '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC. Read-only: this monitor detects, it does not block or change entries.</p>'+\n '<div class=\"k\"><div><b>'+rows.length+'</b><span class=\"m\">entries checked</span></div><div><b>'+ps.length+'</b><span class=\"m\">passed</span></div><div><b style=\"color:#B3261E\">'+ex.length+'</b><span class=\"m\">policy exceptions</span></div><div><b style=\"color:#A8661A\">'+rv.length+'</b><span class=\"m\">flagged for review</span></div><div><b>EUR '+(exEUR/1e6).toFixed(2)+'m</b><span class=\"m\">value in exceptions</span></div></div>'+\n '<h2>What was checked</h2><ul>'+Object.keys(label).map(c=>'<li>'+label[c]+': <b>'+(codes[c]||0)+'</b></li>').join('')+'</ul>'+\n '<h2>Exception queue (controller action)</h2><div class=\"sc\"><table>'+head+ex.map(tr).join('')+'</table></div>'+\n '<h2>For review (not breaches)</h2><div class=\"sc\"><table>'+head+rv.map(tr).join('')+'</table></div>'+\n '<h2>Run quality</h2><ul><li>Detection eval: <b>'+evalOk+'/'+rows.length+'</b> entries match the labelled test set.</li><li>Explanations: <b>'+llmOk+'/'+llmN+'</b> valid JSON from Claude; failures fall back to manual review and are still logged.</li><li>Audit log: <b>'+(rows.length-logFail)+'/'+rows.length+'</b> rows written to je_control_audit_log'+(logFail?' ('+logFail+' not written: duplicates from a rerun of the same month and policy version, or the log is switched off)':'')+'. Each row carries the policy version and FX rate, so an auditor can re-perform the check.</li></ul>'+\n '</main></body></html>';\nreturn [{json:{checked:rows.length,passed:ps.length,exceptions:ex.length,review:rv.length,exceptionValueEUR:exEUR,evalMatch:evalOk+'/'+rows.length,explanationsValid:llmOk+'/'+llmN,auditLogWritten:logOk+'/'+rows.length}, binary:{report:{data:Buffer.from(html).toString('base64'),mimeType:'text/html',fileName:'je_control_report_2026-09.html'}}}];\n"
       },
       "id": "de8b38c0-9c88-4542-8192-b909d83db3a6",
       "name": "Build control report",
@@ -188,7 +188,78 @@
     },
     {
       "parameters": {
-        "content": "## JE control monitor (prototype of a read-only audit agent)\nDetective control: flags journal entries that break the approval policy. It never blocks or changes an entry.\n1. Load JEs (synthetic; production = your ERP's journal-entries API)\n2. Deterministic policy checks: EUR thresholds, segregation of duties, closed period, weekend entry, round amounts\n3. Claude explains exceptions only. It never decides pass/fail\n4. Invalid LLM output -> manual review, never dropped\n5. Every entry logged to Supabase; unique key (run_month, entry_number, policy_version) rejects duplicate reruns, so history is never overwritten\n6. Monthly control report (HTML) + eval against a labelled set",
+        "jsCode": "// Route results by materiality, same limits as the approval policy:\n//  - CFO gets only the exceptions at CFO level (>= EUR 150k)\n//  - Controller gets the whole queue (all exceptions + review items)\n// Both emails carry the full HTML report as an attachment. Nothing flagged -> no emails.\nconst TO = { Controller: 'controller@example.com', CFO: 'cfo@example.com' };   // set your recipients here\nconst MONTH = 'September 2026';\n\nconst rows = $('Shape log row').all().map(i => i.json);\nconst report = $input.first().binary;\nconst esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst fmt = n => Math.round(n || 0).toLocaleString('en');\nconst label = {no_approval:'No approval', approver_too_junior:'Approved below required level', self_approved:'Self-approved',\n  closed_period:'Posted into closed period', weekend:'Weekend entry', round_amount:'Round amount'};\nconst byValue = (a, b) => (b.amount_eur || 0) - (a.amount_eur || 0);\n\nconst ex = rows.filter(r => r.result === 'exception').sort(byValue);\nconst rv = rows.filter(r => r.result === 'review').sort(byValue);\nconst cfo = ex.filter(r => r.required_approval === 'CFO');\n\nconst td = 'padding:8px 10px;border-bottom:1px solid #e3e7eb;vertical-align:top;text-align:left;';\nconst table = list => '<table style=\"border-collapse:collapse;width:100%;font-size:13px;\">' +\n  '<tr style=\"background:#1F2A33;color:#fff;\"><th style=\"' + td + '\">Entry</th><th style=\"' + td + '\">Amount</th><th style=\"' + td + '\">Finding</th><th style=\"' + td + '\">What to do</th></tr>' +\n  list.map(r => '<tr>' +\n    '<td style=\"' + td + '\"><b>' + esc(r.entry_number) + '</b><br><span style=\"color:#5F6B74\">' + esc(r.entity) + ' \u00b7 ' + esc(r.description) + '</span></td>' +\n    '<td style=\"' + td + 'white-space:nowrap;\">EUR ' + fmt(r.amount_eur) + '<br><span style=\"color:#5F6B74\">' + esc(r.currency) + ' ' + fmt(r.amount) + '</span></td>' +\n    '<td style=\"' + td + '\">' + r.findings.map(f => esc(label[f.code] || f.code)).join('<br>') + '<br><span style=\"color:#5F6B74\">created ' + esc(r.created_by) + ', approved ' + esc(r.approved_by || 'none') + '</span></td>' +\n    '<td style=\"' + td + '\">' + (r.explanation ? esc(r.explanation.summary) + '<br><b>Next:</b> ' + esc(r.explanation.next_step) : '') + '</td>' +\n  '</tr>').join('') + '</table>';\nconst wrap = (intro, body) => '<div style=\"font-family:Arial,sans-serif;color:#1F2A33;max-width:900px;\">' + intro + body +\n  '<p style=\"color:#5F6B74;font-size:12px;margin-top:18px;\">Read-only control: nothing has been blocked or changed. Full report attached. Generated by the JE control monitor.</p></div>';\n\nconst out = [];\nif (cfo.length) out.push({ role: 'CFO', to: TO.CFO, count: cfo.length,\n  subject: 'CFO action: ' + cfo.length + ' journal ' + (cfo.length === 1 ? 'entry' : 'entries') + ' at CFO level without valid approval (' + MONTH + ')',\n  html: wrap('<p>These entries are at or above EUR 150,000, so policy requires CFO approval. None has it. Total: <b>EUR ' + fmt(cfo.reduce((a, r) => a + r.amount_eur, 0)) + '</b>.</p>', table(cfo)) });\nif (ex.length || rv.length) out.push({ role: 'Controller', to: TO.Controller, count: ex.length + rv.length,\n  subject: 'JE controls ' + MONTH + ': ' + ex.length + ' exceptions (EUR ' + fmt(ex.reduce((a, r) => a + r.amount_eur, 0)) + '), ' + rv.length + ' for review',\n  html: wrap('<p><b>' + rows.length + '</b> entries checked: <b>' + (rows.length - ex.length - rv.length) + '</b> passed, <b style=\"color:#B3261E\">' + ex.length + '</b> policy exceptions, <b style=\"color:#A8661A\">' + rv.length + '</b> for review.' +\n      (cfo.length ? ' The ' + cfo.length + ' CFO-level exceptions have also gone to the CFO.' : '') + '</p><h3 style=\"margin:18px 0 8px;\">Exception queue</h3>',\n    table(ex) + (rv.length ? '<h3 style=\"margin:18px 0 8px;\">For review (not breaches)</h3>' + table(rv) : '')) });\n\nreturn out.map(e => ({ json: e, binary: report }));\n"
+      },
+      "id": "5f1d2a7b-3c4e-4b8a-9d6f-1e2c3b4a5d6e",
+      "name": "Route by materiality",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.count }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6a2e3b8c-4d5f-4c9b-8e7a-2f3d4c5b6e7f",
+      "name": "Anything to send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2432,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "report"
+              }
+            ]
+          }
+        }
+      },
+      "id": "7b3f4c9d-5e6a-4d0c-9f8b-3a4e5d6c7f8a",
+      "name": "Email Controller / CFO",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2656,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## JE control monitor (prototype of a read-only audit agent)\nDetective control: flags journal entries that break the approval policy. It never blocks or changes an entry.\n1. Load JEs (synthetic; production = your ERP's journal-entries API)\n2. Deterministic policy checks: EUR thresholds, segregation of duties, closed period, weekend entry, round amounts\n3. Claude explains exceptions only. It never decides pass/fail\n4. Invalid LLM output -> manual review, never dropped\n5. Every entry logged to Supabase; unique key (run_month, entry_number, policy_version) rejects duplicate reruns, so history is never overwritten\n6. Monthly control report (HTML) + eval against a labelled set\n7. Routed by materiality: CFO-level exceptions email the CFO, the full queue emails the Controller, report attached. Nothing flagged = no email",
         "height": 560,
         "width": 300,
         "color": 5
@@ -320,6 +391,40 @@
           }
         ]
       ]
+    },
+    "Build control report": {
+      "main": [
+        [
+          {
+            "node": "Route by materiality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by materiality": {
+      "main": [
+        [
+          {
+            "node": "Anything to send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to send?": {
+      "main": [
+        [
+          {
+            "node": "Email Controller / CFO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
     }
   },
   "settings": {
@@ -328,5 +433,5 @@
   "active": false,
   "meta": {},
   "tags": [],
-  "description": "Read-only journal-entry control monitor: deterministic policy checks, Claude explains exceptions, audit log to Supabase, monthly control report."
+  "description": "Read-only journal-entry control monitor: deterministic policy checks, Claude explains exceptions, audit log to Supabase, monthly control report emailed by materiality."
 }
