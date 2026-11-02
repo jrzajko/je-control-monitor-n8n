@@ -1,0 +1,9 @@
+.env
+.env.*
+*.local.json
+# n8n execution exports / pinned data / generated reports
+executions/
+*-execution*.json
+*pinData*
+je_control_report_*.html
+.DS_Store

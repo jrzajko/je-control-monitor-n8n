@@ -1,0 +1,35 @@
+entryNumber,entity,currency,amount,postingDate,createdAt,description,source,createdBy,approvedBy,approverRole,planted_issue
+JE-2026-901,UK,GBP,4200,2026-09-30,2026-09-30T10:15:00Z,Accrual: September consultancy fees,manual,Ana Silva,,,none
+JE-2026-902,DE,EUR,38450,2026-09-30,2026-09-30T10:15:00Z,Accrual: September cloud hosting,manual,Ana Silva,Priya Shah,Controller,none
+JE-2026-903,US,USD,7380,2026-09-30,2026-09-30T10:15:00Z,Accrual: US payroll taxes September,manual,Marek Nowak,,,none
+JE-2026-904,IE,EUR,2915,2026-09-30,2026-09-30T10:15:00Z,Prepaid insurance release September,manual,Marek Nowak,,,none
+JE-2026-905,PL,PLN,21640,2026-09-29,2026-09-29T10:15:00Z,Bank fee reclass,manual,Chloe Martin,,,none
+JE-2026-906,UK,GBP,9870,2026-09-29,2026-09-29T10:15:00Z,Accrual: contractor invoices September,manual,Ana Silva,,,none
+JE-2026-907,DE,EUR,12735,2026-09-25,2026-09-25T10:15:00Z,Depreciation September,manual,Ana Silva,,,none
+JE-2026-908,US,USD,54300,2026-09-30,2026-09-30T10:15:00Z,Deferred revenue release September (US),manual,Marek Nowak,Priya Shah,Controller,none
+JE-2026-909,IE,EUR,18260,2026-09-30,2026-09-30T10:15:00Z,Accrual: office rent,manual,Marek Nowak,Priya Shah,Controller,none
+JE-2026-910,DE,EUR,412880,2026-09-30,2026-09-30T10:15:00Z,Subscription revenue September (group),upload,Ana Silva,Tom Becker,CFO,none
+JE-2026-911,UK,GBP,6145,2026-09-24,2026-09-24T10:15:00Z,Reclass marketing to R&D,manual,Marek Nowak,,,none
+JE-2026-912,US,USD,3912,2026-09-23,2026-09-23T10:15:00Z,Card spend reclass travel,manual,Chloe Martin,,,none
+JE-2026-913,DE,EUR,96410,2026-09-30,2026-09-30T10:15:00Z,Intercompany recharge DE to US,manual,Ana Silva,Priya Shah,Controller,none
+JE-2026-914,US,USD,104795,2026-09-30,2026-09-30T10:15:00Z,Intercompany recharge DE to US (US side),manual,Marek Nowak,Priya Shah,Controller,none
+JE-2026-915,IE,EUR,840,2026-09-22,2026-09-22T10:15:00Z,FX rounding difference,manual,Chloe Martin,,,none
+JE-2026-916,PL,PLN,31550,2026-09-30,2026-09-30T10:15:00Z,Payroll accrual PL,manual,Marek Nowak,,,none
+JE-2026-917,DE,EUR,13980,2026-09-30,2026-09-30T10:15:00Z,VAT reclass Q3,manual,Daniel Okafor,,,none
+JE-2026-918,UK,GBP,11265,2026-09-21,2026-09-21T10:15:00Z,Accrual: legal fees,manual,Ana Silva,,,none
+JE-2026-919,US,USD,168400,2026-09-30,2026-09-30T10:15:00Z,Sales tax liability true-up,manual,Daniel Okafor,Tom Becker,CFO,none
+JE-2026-920,DE,EUR,14350,2026-09-30,2026-09-30T10:15:00Z,Bonus accrual September,manual,Ana Silva,,,none
+JE-2026-921,IE,EUR,5630,2026-09-30,2026-09-30T10:15:00Z,Deferred revenue release September (IE),manual,Marek Nowak,,,none
+JE-2026-922,DE,EUR,87215,2026-09-30,2026-09-30T10:15:00Z,Revenue adjustment upload - September,upload,Marek Nowak,,,no_approval
+JE-2026-923,US,USD,23940,2026-09-30,2026-09-30T10:15:00Z,Card revenue US September,upload,Marek Nowak,,,no_approval
+JE-2026-924,UK,GBP,146380,2026-09-30,2026-09-30T10:15:00Z,Revenue reclass UK - bulk upload,upload,Chloe Martin,,,no_approval
+JE-2026-925,UK,GBP,14730,2026-09-30,2026-09-30T10:15:00Z,Accrual: audit fee UK,manual,Ana Silva,,,no_approval
+JE-2026-926,DE,EUR,238600,2026-09-30,2026-09-30T10:15:00Z,Year-to-date bonus true-up,manual,Ana Silva,Priya Shah,Controller,approver_too_junior
+JE-2026-927,US,USD,176250,2026-09-30,2026-09-30T10:15:00Z,Customer credit write-off,manual,Marek Nowak,Priya Shah,Controller,approver_too_junior
+JE-2026-928,IE,EUR,42300,2026-09-30,2026-09-30T10:15:00Z,Accrual: consulting project,manual,Priya Shah,Priya Shah,Controller,self_approved
+JE-2026-929,PL,PLN,88400,2026-09-30,2026-09-30T10:15:00Z,Reclass software costs,manual,Ana Silva,Ana Silva,Accountant,self_approved|approver_too_junior
+JE-2026-930,DE,EUR,7860,2026-08-31,2026-09-17T10:15:00Z,Missed August accrual - telecoms,manual,Ana Silva,,,closed_period
+JE-2026-931,UK,GBP,2375,2026-09-25,2026-09-26T10:15:00Z,Reclass entertainment,manual,Chloe Martin,,,weekend
+JE-2026-932,DE,EUR,9000,2026-09-30,2026-09-27T10:15:00Z,Accrual: misc provision,manual,Marek Nowak,,,weekend|round_amount
+JE-2026-933,US,USD,12000,2026-09-30,2026-09-30T10:15:00Z,Provision: general,manual,Marek Nowak,,,round_amount
+JE-2026-934,PL,PLN,65100,2026-09-30,2026-09-30T10:15:00Z,Accrual: marketing agency,manual,Marek Nowak,,,none

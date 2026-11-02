@@ -1,0 +1,332 @@
+{
+  "name": "JE control monitor (read-only audit agent prototype)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "7b565080-802f-4195-b229-410e9042abe0",
+      "name": "Run monthly JE control check",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Synthetic September 2026 journal entries for a fictional 5-entity group (\"Kestrel Group\").\n// Production: replace this node with an HTTP Request to your ERP's journal-entries endpoint.\n// _evalLabel = the issue planted in each entry; used only to score detection (eval), never by the checks.\nconst U={ctrl:'Priya Shah',cfo:'Tom Becker',acc1:'Ana Silva',acc2:'Marek Nowak',ops:'Chloe Martin',tax:'Daniel Okafor'};\nconst role={[U.ctrl]:'Controller',[U.cfo]:'CFO',[U.acc1]:'Accountant',[U.acc2]:'Accountant',[U.ops]:'Finance ops',[U.tax]:'Head of tax'};\nconst E={UK:'GBP',DE:'EUR',US:'USD',PL:'PLN',IE:'EUR'};\nlet rows=[];let n=0;\nfunction je(ent,date,amt,desc,cb,ab,src,planted=[],created=null){n++;\n rows.push({id:'je_'+String(n).padStart(3,'0'),entryNumber:'JE-2026-'+String(900+n),entity:ent,currency:E[ent],\n  postingDate:date,createdAt:(created||date)+'T10:15:00Z',amount:amt,description:desc,source:src,\n  createdBy:cb,approvedBy:ab,approverRole:ab?role[ab]:null,_evalLabel:planted});}\n// clean entries (approval level correct for the amount)\nje('UK','2026-09-30',4200,'Accrual: September consultancy fees',U.acc1,null,'manual');\nje('DE','2026-09-30',38450,'Accrual: September cloud hosting',U.acc1,U.ctrl,'manual');\nje('US','2026-09-30',7380,'Accrual: US payroll taxes September',U.acc2,null,'manual');\nje('IE','2026-09-30',2915,'Prepaid insurance release September',U.acc2,null,'manual');\nje('PL','2026-09-29',21640,'Bank fee reclass',U.ops,null,'manual');\nje('UK','2026-09-29',9870,'Accrual: contractor invoices September',U.acc1,null,'manual');\nje('DE','2026-09-25',12735,'Depreciation September',U.acc1,null,'manual');\nje('US','2026-09-30',54300,'Deferred revenue release September (US)',U.acc2,U.ctrl,'manual');\nje('IE','2026-09-30',18260,'Accrual: office rent',U.acc2,U.ctrl,'manual');\nje('DE','2026-09-30',412880,'Subscription revenue September (group)',U.acc1,U.cfo,'upload');\nje('UK','2026-09-24',6145,'Reclass marketing to R&D',U.acc2,null,'manual');\nje('US','2026-09-23',3912,'Card spend reclass travel',U.ops,null,'manual');\nje('DE','2026-09-30',96410,'Intercompany recharge DE to US',U.acc1,U.ctrl,'manual');\nje('US','2026-09-30',104795,'Intercompany recharge DE to US (US side)',U.acc2,U.ctrl,'manual');\nje('IE','2026-09-22',840,'FX rounding difference',U.ops,null,'manual');\nje('PL','2026-09-30',31550,'Payroll accrual PL',U.acc2,null,'manual');\nje('DE','2026-09-30',13980,'VAT reclass Q3',U.tax,null,'manual');\nje('UK','2026-09-21',11265,'Accrual: legal fees',U.acc1,null,'manual');\nje('US','2026-09-30',168400,'Sales tax liability true-up',U.tax,U.cfo,'manual');\nje('DE','2026-09-30',14350,'Bonus accrual September',U.acc1,null,'manual');\nje('IE','2026-09-30',5630,'Deferred revenue release September (IE)',U.acc2,null,'manual');\n// planted: above threshold, no approval recorded (bulk uploads bypassing approval)\nje('DE','2026-09-30',87215,'Revenue adjustment upload - September',U.acc2,null,'upload',['no_approval']);\nje('US','2026-09-30',23940,'Card revenue US September',U.acc2,null,'upload',['no_approval']);\nje('UK','2026-09-30',146380,'Revenue reclass UK - bulk upload',U.ops,null,'upload',['no_approval']);\nje('UK','2026-09-30',14730,'Accrual: audit fee UK',U.acc1,null,'manual',['no_approval']);\n// planted: approved below the required level (needs CFO)\nje('DE','2026-09-30',238600,'Year-to-date bonus true-up',U.acc1,U.ctrl,'manual',['approver_too_junior']);\nje('US','2026-09-30',176250,'Customer credit write-off',U.acc2,U.ctrl,'manual',['approver_too_junior']);\n// planted: self-approved (segregation of duties)\nje('IE','2026-09-30',42300,'Accrual: consulting project',U.ctrl,U.ctrl,'manual',['self_approved']);\nje('PL','2026-09-30',88400,'Reclass software costs',U.acc1,U.acc1,'manual',['self_approved','approver_too_junior']);\n// planted: posted into a closed period\nje('DE','2026-08-31',7860,'Missed August accrual - telecoms',U.acc1,null,'manual',['closed_period'],'2026-09-17');\n// planted: weekend entry and round amounts\nje('UK','2026-09-25',2375,'Reclass entertainment',U.ops,null,'manual',['weekend'],'2026-09-26');\nje('DE','2026-09-30',9000,'Accrual: misc provision',U.acc2,null,'manual',['weekend','round_amount'],'2026-09-27');\nje('US','2026-09-30',12000,'Provision: general',U.acc2,null,'manual',['round_amount']);\n// edge case: just under the Controller threshold after FX (PLN 65,100 x 0.23 = EUR 14,973) -> clean\nje('PL','2026-09-30',65100,'Accrual: marketing agency',U.acc2,null,'manual');\nreturn rows.map(r=>({json:r}));\n"
+      },
+      "id": "0801bfa3-c46f-40bc-88cf-c212a3593d2f",
+      "name": "Load journal entries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deterministic policy engine. Claude never makes these decisions.\nconst POLICY={version:'JE-APPROVAL-v0.1 (example policy - confirm thresholds with the controller)',\n  controllerFromEUR:15000, cfoFromEUR:150000,\n  fxToEUR:{EUR:1,GBP:1.16,USD:0.92,PLN:0.23}, fxRateDate:'2026-09-30',\n  closedThrough:'2026-08-31', roundMinEUR:5000, roundStep:1000};\nconst rank={'Controller':1,'CFO':2};\nconst fmt=x=>Math.round(x).toLocaleString('en');\nfunction check(j){\n  const rate=POLICY.fxToEUR[j.currency];\n  const f=[];\n  if(rate===undefined) return {...j,amountEUR:null,requiredApproval:null,findings:[{code:'unknown_currency',severity:'high',detail:'No policy FX rate for '+j.currency}],result:'exception',policyVersion:POLICY.version,checkedAt:new Date().toISOString()};\n  const eur=Math.round(j.amount*rate);\n  const req=eur>=POLICY.cfoFromEUR?'CFO':eur>=POLICY.controllerFromEUR?'Controller':'None';\n  if(req!=='None'&&!j.approvedBy) f.push({code:'no_approval',severity:'high',detail:'EUR '+fmt(eur)+' needs '+req+' approval; none recorded'});\n  if(req!=='None'&&j.approvedBy&&(rank[j.approverRole]||0)<rank[req]) f.push({code:'approver_too_junior',severity:'high',detail:'Needs '+req+'; approved by '+j.approverRole});\n  if(j.approvedBy&&j.approvedBy===j.createdBy) f.push({code:'self_approved',severity:'high',detail:'Created and approved by '+j.createdBy});\n  if(j.postingDate<=POLICY.closedThrough&&j.createdAt.slice(0,10)>POLICY.closedThrough) f.push({code:'closed_period',severity:'high',detail:'Posted to '+j.postingDate+' (closed) on '+j.createdAt.slice(0,10)});\n  const d=new Date(j.createdAt).getUTCDay(); // the day a person entered it, not the accounting date\n  if(d===0||d===6) f.push({code:'weekend',severity:'review',detail:'Entered on a '+(d===0?'Sunday':'Saturday')+' ('+j.createdAt.slice(0,10)+')'});\n  if(eur>=POLICY.roundMinEUR&&j.amount%POLICY.roundStep===0) f.push({code:'round_amount',severity:'review',detail:'Round amount '+j.currency+' '+fmt(j.amount)});\n  const result=f.some(x=>x.severity==='high')?'exception':f.length?'review':'pass';\n  return {...j,amountEUR:eur,fxRate:rate,requiredApproval:req,findings:f,result,policyVersion:POLICY.version,checkedAt:new Date().toISOString()};\n}\nreturn $input.all().map(i=>({json:check(i.json)}));\n"
+      },
+      "id": "fc2de307-b0b7-4063-bfce-4a92fc28f3e4",
+      "name": "Policy checks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.result }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              },
+              "rightValue": "pass"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c7c42319-8959-42a7-9152-af91ecad77de",
+      "name": "Needs explanation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, system: 'You are an audit assistant for a group finance team. A deterministic policy engine has ALREADY decided this journal entry needs attention; you must not change, soften or add to that decision. Explain the findings for the Group Financial Controller in plain English, using only the facts given. Never invent approvers, amounts, dates or policies. Return ONLY a JSON object, no prose, no markdown, with exactly these keys: summary (max 30 words: what is wrong), risk (max 30 words: why it matters to the controller and auditors), next_step (max 25 words: concrete action and who owns it), confidence (one of high, medium, low: how clearly the facts support the explanation).', messages: [{ role: 'user', content: JSON.stringify({ entry: { number: $json.entryNumber, entity: $json.entity, description: $json.description, amount: $json.currency + ' ' + $json.amount, amountEUR: $json.amountEUR, source: $json.source, postingDate: $json.postingDate, enteredAt: $json.createdAt, createdBy: $json.createdBy, approvedBy: $json.approvedBy, approverRole: $json.approverRole }, requiredApproval: $json.requiredApproval, findings: $json.findings, policy: $json.policyVersion }) }] }) }}",
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi"
+      },
+      "id": "108d200e-75d9-411f-ad6c-b822d2ec33fd",
+      "name": "Claude: explain finding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        192
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate Claude's JSON. Any failure -> entry is still logged and sent to manual review. Never dropped.\nconst out=[];\nconst replies=$input.all();\nconst fence=String.fromCharCode(96).repeat(3);\nfor(let i=0;i<replies.length;i++){\n  const orig=$('Policy checks').itemMatching(i).json;\n  const r=replies[i].json;\n  let exp;\n  try{\n    if(r.error) throw new Error('API error: '+JSON.stringify(r.error).slice(0,200));\n    const txt=(r.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('').split(fence+'json').join('').split(fence).join('').trim();\n    const p=JSON.parse(txt);\n    for(const k of ['summary','risk','next_step','confidence']) if(!p[k]) throw new Error('missing '+k);\n    if(!['high','medium','low'].includes(p.confidence)) throw new Error('bad confidence');\n    exp={...p, model:r.model||null, ok:true};\n  }catch(e){\n    exp={summary:'Explanation unavailable - review manually',risk:'',next_step:'Controller to review findings directly',confidence:'low',ok:false,error:String(e.message).slice(0,300)};\n  }\n  out.push({json:{...orig, explanation:exp}});\n}\nreturn out;\n"
+      },
+      "id": "c4297346-38e2-4463-8627-51f39c43645b",
+      "name": "Validate Claude output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Passing entries get no LLM call (cost, speed, nothing to explain).\nreturn $input.all().map(i=>({json:{...i.json, explanation:null}}));"
+      },
+      "id": "5a36533e-c856-43ec-b0a5-8138d0ae38c6",
+      "name": "Passed: no explanation needed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        432
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "dcf18862-f009-4636-ad11-40ce2fd977d2",
+      "name": "All entries",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1328,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One audit-log row per entry, pass or fail.\n// Unique key (run_month, entry_number, policy_version) in Supabase: a rerun of the same month under the\n// same policy is rejected row by row (first write wins, history is never overwritten); a rerun under a\n// new policy version is logged as new rows.\nconst runMonth='2026-09';\nreturn $input.all().map(i=>{const j=i.json;return {json:{\n run_month:runMonth, entry_number:j.entryNumber, entity:j.entity, currency:j.currency, amount:j.amount,\n amount_eur:j.amountEUR, fx_rate:j.fxRate, required_approval:j.requiredApproval, created_by:j.createdBy,\n approved_by:j.approvedBy, approver_role:j.approverRole, source:j.source, description:j.description,\n result:j.result, findings:j.findings, explanation:j.explanation, policy_version:j.policyVersion,\n checked_at:j.checkedAt, eval_label:j._evalLabel}};});\n"
+      },
+      "id": "6ea4ea37-ed52-43de-b442-4dd41ec96ff0",
+      "name": "Shape log row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "je_control_log",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "03bc47b2-8529-44d4-b6db-5aa2598b2bbb",
+      "name": "Audit log (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        304
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Monthly control report: what was checked, what passed, what was flagged. Runs once over all entries.\nconst rows=$('Shape log row').all().map(i=>i.json);\nconst logged=$('Audit log (Supabase)').all();\nconst logFail=logged.filter(i=>i.json&&i.json.error).length;\nconst esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\nconst fmt=n=>n==null?'':Math.round(n).toLocaleString('en');\nconst by=r=>rows.filter(x=>x.result===r);\nconst ex=by('exception'),rv=by('review'),ps=by('pass');\nconst evalOk=rows.filter(r=>r.findings.map(f=>f.code).sort().join()===[...(r.eval_label||[])].sort().join()).length;\nconst llmN=rows.filter(r=>r.explanation).length, llmOk=rows.filter(r=>r.explanation&&r.explanation.ok).length;\nconst exEUR=ex.reduce((a,r)=>a+(r.amount_eur||0),0);\nconst codes={};rows.forEach(r=>r.findings.forEach(f=>codes[f.code]=(codes[f.code]||0)+1));\nconst label={no_approval:'Above threshold, no approval',approver_too_junior:'Approved below required level',self_approved:'Self-approved (segregation of duties)',closed_period:'Posted into a closed period',weekend:'Entered at the weekend',round_amount:'Round amount'};\nconst tr=r=>'<tr class=\"'+r.result+'\"><td>'+esc(r.entry_number)+'<br><span class=\"m\">'+esc(r.entity)+', '+esc(r.source)+'</span></td>'+\n '<td>'+esc(r.description)+'<br><span class=\"m\">'+esc(r.currency)+' '+fmt(r.amount)+' = EUR '+fmt(r.amount_eur)+'</span></td>'+\n '<td>'+esc(r.created_by)+'<br><span class=\"m\">approved: '+esc(r.approved_by||'none')+(r.approver_role?' ('+esc(r.approver_role)+')':'')+'; needs '+esc(r.required_approval)+'</span></td>'+\n '<td>'+r.findings.map(f=>'<div><b>'+esc(label[f.code]||f.code)+'</b><br><span class=\"m\">'+esc(f.detail)+'</span></div>').join('')+'</td>'+\n '<td>'+(r.explanation?'<div>'+esc(r.explanation.summary)+'</div><div class=\"m\">Risk: '+esc(r.explanation.risk)+'</div><div class=\"m\"><b>Next:</b> '+esc(r.explanation.next_step)+'</div>':'')+'</td></tr>';\nconst head='<tr><th>Entry</th><th>What</th><th>Who</th><th>Policy finding</th><th>Explanation (Claude)</th></tr>';\nconst css='body{font:15px/1.5 system-ui,sans-serif;color:#1F2A33;background:#FBFCFC;margin:0}main{max-width:1100px;margin:0 auto;padding:40px 20px}h1{font:600 1.8rem Georgia,serif;margin:0 0 6px}h2{font:600 1.25rem Georgia,serif;margin:36px 0 10px}.m{color:#5F6B74;font-size:.85em}.k{display:flex;gap:28px;flex-wrap:wrap;margin:20px 0}.k div{min-width:120px}.k b{display:block;font:600 1.8rem Georgia,serif}.sc{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:860px;font-size:.9rem}th,td{text-align:left;vertical-align:top;padding:9px 10px 9px 0;border-bottom:1px solid #D8DEE3}th{color:#5F6B74;font-size:.8rem}tr.exception td:first-child{border-left:3px solid #B3261E;padding-left:8px}tr.review td:first-child{border-left:3px solid #A8661A;padding-left:8px}ul{padding-left:18px}';\nconst html='<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>JE control report September 2026</title><style>'+css+'</style></head><body><main>'+\n '<h1>Journal entry control report: September 2026</h1>'+\n '<p class=\"m\">Kestrel Group (fictional), 5 entities. Policy '+esc(rows[0]&&rows[0].policy_version)+'. Thresholds tested in EUR at fixed 30 Sep rates. Generated '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC. Read-only: this monitor detects, it does not block or change entries.</p>'+\n '<div class=\"k\"><div><b>'+rows.length+'</b><span class=\"m\">entries checked</span></div><div><b>'+ps.length+'</b><span class=\"m\">passed</span></div><div><b style=\"color:#B3261E\">'+ex.length+'</b><span class=\"m\">policy exceptions</span></div><div><b style=\"color:#A8661A\">'+rv.length+'</b><span class=\"m\">flagged for review</span></div><div><b>EUR '+(exEUR/1e6).toFixed(2)+'m</b><span class=\"m\">value in exceptions</span></div></div>'+\n '<h2>What was checked</h2><ul>'+Object.keys(label).map(c=>'<li>'+label[c]+': <b>'+(codes[c]||0)+'</b></li>').join('')+'</ul>'+\n '<h2>Exception queue (controller action)</h2><div class=\"sc\"><table>'+head+ex.map(tr).join('')+'</table></div>'+\n '<h2>For review (not breaches)</h2><div class=\"sc\"><table>'+head+rv.map(tr).join('')+'</table></div>'+\n '<h2>Run quality</h2><ul><li>Detection eval: <b>'+evalOk+'/'+rows.length+'</b> entries match the labelled test set.</li><li>Explanations: <b>'+llmOk+'/'+llmN+'</b> valid JSON from Claude; failures fall back to manual review and are still logged.</li><li>Audit log: <b>'+(rows.length-logFail)+'/'+rows.length+'</b> rows written to je_control_log'+(logFail?' ('+logFail+' rejected, e.g. duplicates from a rerun of the same month and policy version)':'')+'. Each row carries the policy version and FX rate, so an auditor can re-perform the check.</li></ul>'+\n '</main></body></html>';\nreturn [{json:{checked:rows.length,passed:ps.length,exceptions:ex.length,review:rv.length,exceptionValueEUR:exEUR,evalMatch:evalOk+'/'+rows.length,explanationsValid:llmOk+'/'+llmN,auditLogWritten:(rows.length-logFail)+'/'+rows.length}, binary:{report:{data:Buffer.from(html).toString('base64'),mimeType:'text/html',fileName:'je_control_report_2026-09.html'}}}];\n"
+      },
+      "id": "de8b38c0-9c88-4542-8192-b909d83db3a6",
+      "name": "Build control report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        304
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "content": "## JE control monitor (prototype of a read-only audit agent)\nDetective control: flags journal entries that break the approval policy. It never blocks or changes an entry.\n1. Load JEs (synthetic; production = your ERP's journal-entries API)\n2. Deterministic policy checks: EUR thresholds, segregation of duties, closed period, weekend entry, round amounts\n3. Claude explains exceptions only. It never decides pass/fail\n4. Invalid LLM output -> manual review, never dropped\n5. Every entry logged to Supabase; unique key (run_month, entry_number, policy_version) rejects duplicate reruns, so history is never overwritten\n6. Monthly control report (HTML) + eval against a labelled set",
+        "height": 560,
+        "width": 300,
+        "color": 5
+      },
+      "id": "ddb042ca-fb1f-45a5-a93f-1df95d1b9a49",
+      "name": "Note ddb0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        176
+      ]
+    }
+  ],
+  "connections": {
+    "Run monthly JE control check": {
+      "main": [
+        [
+          {
+            "node": "Load journal entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load journal entries": {
+      "main": [
+        [
+          {
+            "node": "Policy checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Policy checks": {
+      "main": [
+        [
+          {
+            "node": "Needs explanation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs explanation?": {
+      "main": [
+        [
+          {
+            "node": "Claude: explain finding",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Passed: no explanation needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: explain finding": {
+      "main": [
+        [
+          {
+            "node": "Validate Claude output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Claude output": {
+      "main": [
+        [
+          {
+            "node": "All entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passed: no explanation needed": {
+      "main": [
+        [
+          {
+            "node": "All entries",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "All entries": {
+      "main": [
+        [
+          {
+            "node": "Shape log row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape log row": {
+      "main": [
+        [
+          {
+            "node": "Audit log (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit log (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Build control report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {},
+  "tags": [],
+  "description": "Read-only journal-entry control monitor: deterministic policy checks, Claude explains exceptions, audit log to Supabase, monthly control report."
+}
