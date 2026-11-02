@@ -18,6 +18,8 @@ It is a **detective** control: it flags issues, it doesn't block or change entri
 
 ## How it works
 
+![The workflow in the n8n editor](docs/canvas.png)
+
 ```mermaid
 flowchart LR
     A[Manual trigger<br/>monthly run] --> B[Load journal entries<br/>synthetic / ERP API]
